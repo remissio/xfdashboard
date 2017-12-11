@@ -62,11 +62,13 @@ struct _XfdashboardThemeLayoutPrivate
 };
 
 /* IMPLEMENTATION: Private variables and methods */
+#define XFDASHBOARD_THEME_LAYOUT_DEFAULT_STYLE		"default"
+
 enum
 {
 	TAG_DOCUMENT,
+	TAG_INTERFACES,
 	TAG_INTERFACE,
-	TAG_OBJECT,
 	TAG_CHILD,
 	TAG_PROPERTY,
 	TAG_CONSTRAINT,
@@ -83,12 +85,22 @@ struct _XfdashboardThemeLayoutTagData
 
 	union
 	{
+		/* Used by tags: interface */
+		struct
+		{
+			gchar						*id;
+			gchar						*class;
+			gchar						*style;
+		} interface;
+
+		/* Used by tags: child, constraint, layout */
 		struct
 		{
 			gchar						*id;
 			gchar						*class;
 		} object;
 
+		/* Used by tags: property */
 		struct
 		{
 			gchar						*name;
@@ -97,6 +109,7 @@ struct _XfdashboardThemeLayoutTagData
 			gchar						*refID;
 		} property;
 
+		/* Used by tags: focus */
 		struct
 		{
 			gchar						*refID;
@@ -115,23 +128,25 @@ struct _XfdashboardThemeLayoutParsedObject
 	GSList								*constraints;	/* 0, 1 or more entries of XfdashboardThemeLayoutParsedObject */
 	XfdashboardThemeLayoutParsedObject	*layout;		/* 0 or 1 entry of XfdashboardThemeLayoutParsedObject */
 	GSList								*children;		/* 0, 1 or more entries of XfdashboardThemeLayoutParsedObject */
-	GPtrArray							*focusables;	/* 0, 1 or more entries of XfdashboardThemeLayoutTagData (only used at <interface>) */
+	GSList								*focusables;	/* 0, 1 or more entries of XfdashboardThemeLayoutTagData (only used at <interface>) */
+	gboolean							hasFocusables;
 };
 
 struct _XfdashboardThemeLayoutParserData
 {
 	XfdashboardThemeLayout				*self;
 
-	XfdashboardThemeLayoutParsedObject	*interface;
+	GSList								*interfaces;	/* 1 or more entries of XfdashboardThemeLayoutParsedObject */
 	GQueue								*stackObjects;
 	GQueue								*stackTags;
-	GPtrArray							*focusables;	/* 0, 1 or more entries of XfdashboardThemeLayoutTagData */
 
 	gint								lastLine;
 	gint								lastPosition;
 	gint								currentLine;
 	gint								currentPostition;
 	const gchar							*currentPath;
+
+	XfdashboardThemeLayoutParsedObject	*currentInterface;
 };
 
 struct _XfdashboardThemeLayoutUnresolvedBuildID
@@ -221,6 +236,18 @@ static void _xfdashboard_theme_layout_print_parsed_objects_internal(XfdashboardT
 				prefix=g_strdup_printf("Child %d:", j++);
 				_xfdashboard_theme_layout_print_parsed_objects_internal(objectData, inDepth+1, prefix);
 				g_free(prefix);
+			});
+
+	j=1;
+	LOOP(inData->focusables,
+			tagData, XfdashboardThemeLayoutTagData,
+			{
+				INDENT(inDepth+1, indention);
+				g_print("# Focusable %d: (ref-count=%d, refID=%s, selected=%s)\n",
+							j++,
+							tagData->refCount,
+							tagData->tag.focus.refID,
+							tagData->tag.focus.selected ? "yes" : "no");
 			});
 
 #undef LOOP
@@ -333,8 +360,8 @@ static gint _xfdashboard_theme_layout_get_tag_by_name(const gchar *inTag)
 	g_return_val_if_fail(inTag && *inTag, -1);
 
 	/* Compare string and return type ID */
+	if(g_strcmp0(inTag, "interfaces")==0) return(TAG_INTERFACES);
 	if(g_strcmp0(inTag, "interface")==0) return(TAG_INTERFACE);
-	if(g_strcmp0(inTag, "object")==0) return(TAG_OBJECT);
 	if(g_strcmp0(inTag, "child")==0) return(TAG_CHILD);
 	if(g_strcmp0(inTag, "property")==0) return(TAG_PROPERTY);
 	if(g_strcmp0(inTag, "constraint")==0) return(TAG_CONSTRAINT);
@@ -354,11 +381,11 @@ static const gchar* _xfdashboard_theme_layout_get_tag_by_id(guint inTagType)
 		case TAG_DOCUMENT:
 			return("document");
 
+		case TAG_INTERFACES:
+			return("interfaces");
+
 		case TAG_INTERFACE:
 			return("interface");
-
-		case TAG_OBJECT:
-			return("object");
 
 		case TAG_CHILD:
 			return("child");
@@ -433,7 +460,15 @@ static void _xfdashboard_theme_layout_tag_data_free(XfdashboardThemeLayoutTagDat
 	/* Release allocated resources for specified tag */
 	switch(inData->tagType)
 	{
-		case TAG_OBJECT:
+		case TAG_INTERFACE:
+			if(inData->tag.interface.id) g_free(inData->tag.interface.id);
+			if(inData->tag.interface.class) g_free(inData->tag.interface.class);
+			if(inData->tag.interface.style) g_free(inData->tag.interface.style);
+			break;
+
+		case TAG_CHILD:
+		case TAG_CONSTRAINT:
+		case TAG_LAYOUT:
 			if(inData->tag.object.id) g_free(inData->tag.object.id);
 			if(inData->tag.object.class) g_free(inData->tag.object.class);
 			break;
@@ -518,7 +553,7 @@ static void _xfdashboard_theme_layout_object_data_free(XfdashboardThemeLayoutPar
 	if(inData->constraints) g_slist_free_full(inData->constraints, (GDestroyNotify)_xfdashboard_theme_layout_object_data_unref);
 	if(inData->layout) _xfdashboard_theme_layout_object_data_unref(inData->layout);
 	if(inData->children) g_slist_free_full(inData->children, (GDestroyNotify)_xfdashboard_theme_layout_object_data_unref);
-	if(inData->focusables) g_ptr_array_unref(inData->focusables);
+	if(inData->focusables) g_slist_free_full(inData->focusables, (GDestroyNotify)_xfdashboard_theme_layout_tag_data_unref);
 	g_free(inData);
 }
 
@@ -715,7 +750,6 @@ static GObject* _xfdashboard_theme_layout_create_object(XfdashboardThemeLayout *
 	GSList									*iter;
 	GParameter								*properties;
 	gint									maxProperties, usedProperties, i;
-	guint									j;
 
 	g_return_val_if_fail(XFDASHBOARD_IS_THEME_LAYOUT(self), NULL);
 	g_return_val_if_fail(inObjectData, NULL);
@@ -957,13 +991,13 @@ static GObject* _xfdashboard_theme_layout_create_object(XfdashboardThemeLayout *
 	/* Set up focusables which do reference other objects */
 	if(inObjectData->focusables)
 	{
-		for(j=0; j<inObjectData->focusables->len; j++)
+		for(iter=inObjectData->focusables; iter; iter=g_slist_next(iter))
 		{
 			XfdashboardThemeLayoutTagData					*focus;
 			XfdashboardThemeLayoutUnresolvedBuildID			*unresolved;
 
 			/* Get focus data */
-			focus=(XfdashboardThemeLayoutTagData*)g_ptr_array_index(inObjectData->focusables, j);
+			focus=(XfdashboardThemeLayoutTagData*)iter->data;
 
 			/* Create unresolved entry */
 			unresolved=g_new0(XfdashboardThemeLayoutUnresolvedBuildID, 1);
@@ -1123,10 +1157,10 @@ static void _xfdashboard_theme_layout_parse_general_start(GMarkupParseContext *i
 		return;
 	}
 
-	/* Check if element name is <interface> and follows expected parent tags:
+	/* Check if element name is <interfaces> and follows expected parent tags:
 	 * <document>
 	 */
-	if(nextTag==TAG_INTERFACE &&
+	if(nextTag==TAG_INTERFACES &&
 		currentTag==TAG_DOCUMENT)
 	{
 		XfdashboardThemeLayoutTagData		*tagData;
@@ -1157,14 +1191,139 @@ static void _xfdashboard_theme_layout_parse_general_start(GMarkupParseContext *i
 		return;
 	}
 
-	/* Check if element name is <object> and follows expected parent tags:
-	 * <interface>, <child>, <constraint>, <layout>
+	/* Check if element name is <interface> and follows expected parent tags:
+	 * <interfaces>
 	 */
-	if(nextTag==TAG_OBJECT &&
-		(currentTag==TAG_INTERFACE ||
-			currentTag==TAG_CHILD ||
-			currentTag==TAG_CONSTRAINT ||
-			currentTag==TAG_LAYOUT))
+	if(nextTag==TAG_INTERFACE &&
+		currentTag==TAG_INTERFACES)
+	{
+		XfdashboardThemeLayoutTagData		*tagData;
+		XfdashboardThemeLayoutParsedObject	*objectData;
+		GType								expectedClassType=G_TYPE_INVALID;
+
+		/* Create tag and object data */
+		tagData=_xfdashboard_theme_layout_tag_data_new(inContext, nextTag, &error);
+		if(!tagData)
+		{
+			g_propagate_error(outError, error);
+			return;
+		}
+
+		objectData=_xfdashboard_theme_layout_object_data_new(inContext, currentTag, &error);
+		if(!objectData)
+		{
+			g_propagate_error(outError, error);
+			_xfdashboard_theme_layout_tag_data_unref(tagData);
+			return;
+		}
+
+		/* Get tag's attributes */
+		if(!g_markup_collect_attributes(inElementName,
+											inAttributeNames,
+											inAttributeValues,
+											&error,
+											G_MARKUP_COLLECT_STRDUP | G_MARKUP_COLLECT_OPTIONAL,
+											"id",
+											&tagData->tag.interface.id,
+											G_MARKUP_COLLECT_STRDUP,
+											"class",
+											&tagData->tag.interface.class,
+											G_MARKUP_COLLECT_STRDUP | G_MARKUP_COLLECT_OPTIONAL,
+											"style",
+											&tagData->tag.interface.style,
+											G_MARKUP_COLLECT_INVALID))
+		{
+			g_propagate_error(outError, error);
+			_xfdashboard_theme_layout_tag_data_unref(tagData);
+			_xfdashboard_theme_layout_object_data_unref(objectData);
+			return;
+		}
+
+		/* Check tag's attributes */
+		if(tagData->tag.interface.id)
+		{
+			objectData->id=g_strdup(tagData->tag.interface.id);
+			if(strlen(objectData->id)==0)
+			{
+				_xfdashboard_theme_layout_parse_set_error(data,
+															inContext,
+															outError,
+															XFDASHBOARD_THEME_LAYOUT_ERROR_MALFORMED,
+															_("Empty ID at tag '%s'"),
+															inElementName);
+				_xfdashboard_theme_layout_tag_data_unref(tagData);
+				_xfdashboard_theme_layout_object_data_unref(objectData);
+				return;
+			}
+
+			if(!xfdashboard_is_valid_id(tagData->tag.interface.id))
+			{
+				_xfdashboard_theme_layout_parse_set_error(data,
+															inContext,
+															outError,
+															XFDASHBOARD_THEME_LAYOUT_ERROR_MALFORMED,
+															_("Invalid ID '%s' at tag '%s'"),
+															tagData->tag.interface.id,
+															inElementName);
+				_xfdashboard_theme_layout_tag_data_unref(tagData);
+				_xfdashboard_theme_layout_object_data_unref(objectData);
+				return;
+			}
+		}
+
+		objectData->classType=_xfdashboard_theme_layout_resolve_type_lazy(tagData->tag.interface.class);
+		if(objectData->classType==G_TYPE_INVALID)
+		{
+			_xfdashboard_theme_layout_parse_set_error(data,
+														inContext,
+														outError,
+														XFDASHBOARD_THEME_LAYOUT_ERROR_MALFORMED,
+														_("Unknown object class %s for tag '%s'"),
+														tagData->tag.interface.class,
+														inElementName);
+			_xfdashboard_theme_layout_tag_data_unref(tagData);
+			_xfdashboard_theme_layout_object_data_unref(objectData);
+			return;
+		}
+
+		if(!tagData->tag.interface.style)
+		{
+			tagData->tag.interface.style=g_strdup(XFDASHBOARD_THEME_LAYOUT_DEFAULT_STYLE);
+		}
+
+		expectedClassType=CLUTTER_TYPE_ACTOR;
+		g_assert(expectedClassType!=G_TYPE_INVALID);
+		if(!g_type_is_a(objectData->classType, expectedClassType))
+		{
+			_xfdashboard_theme_layout_parse_set_error(data,
+														inContext,
+														outError,
+														XFDASHBOARD_THEME_LAYOUT_ERROR_MALFORMED,
+														_("Invalid class %s in object for parent tag <%s> - expecting class derived from %s"),
+														tagData->tag.object.class,
+														_xfdashboard_theme_layout_get_tag_by_id(currentTag),
+														g_type_name(expectedClassType));
+			_xfdashboard_theme_layout_tag_data_unref(tagData);
+			_xfdashboard_theme_layout_object_data_unref(objectData);
+			return;
+		}
+
+		/* Push tag onto stack */
+		g_queue_push_tail(data->stackTags, tagData);
+
+		/* Push object onto stack */
+		g_queue_push_tail(data->stackObjects, objectData);
+
+		/* Remeber this interface as current one */
+		data->currentInterface=_xfdashboard_theme_layout_object_data_ref(objectData);
+		return;
+	}
+
+	/* Check if element name is <child>, <layout> or <constraint>  and follows expected parent tags:
+	 * <interface>, <child>
+	 */
+	if((nextTag==TAG_CHILD || nextTag==TAG_LAYOUT || nextTag==TAG_CONSTRAINT) &&
+		(currentTag==TAG_INTERFACE || currentTag==TAG_CHILD))
 	{
 		XfdashboardThemeLayoutTagData		*tagData;
 		XfdashboardThemeLayoutParsedObject	*objectData;
@@ -1252,10 +1411,10 @@ static void _xfdashboard_theme_layout_parse_general_start(GMarkupParseContext *i
 			return;
 		}
 
-		if(currentTag==TAG_INTERFACE) expectedClassType=CLUTTER_TYPE_ACTOR;
-			else if(currentTag==TAG_CHILD) expectedClassType=CLUTTER_TYPE_ACTOR;
-			else if(currentTag==TAG_CONSTRAINT) expectedClassType=CLUTTER_TYPE_CONSTRAINT;
-			else if(currentTag==TAG_LAYOUT) expectedClassType=CLUTTER_TYPE_LAYOUT_MANAGER;
+		if(nextTag==TAG_INTERFACE) expectedClassType=CLUTTER_TYPE_ACTOR;
+			else if(nextTag==TAG_CHILD) expectedClassType=CLUTTER_TYPE_ACTOR;
+			else if(nextTag==TAG_CONSTRAINT) expectedClassType=CLUTTER_TYPE_CONSTRAINT;
+			else if(nextTag==TAG_LAYOUT) expectedClassType=CLUTTER_TYPE_LAYOUT_MANAGER;
 
 		g_assert(expectedClassType!=G_TYPE_INVALID);
 		if(!g_type_is_a(objectData->classType, expectedClassType))
@@ -1281,62 +1440,11 @@ static void _xfdashboard_theme_layout_parse_general_start(GMarkupParseContext *i
 		return;
 	}
 
-	/* Check if element name is <child>, <layout> or <constraint> and follows expected parent tags:
-	 * <object>
-	 */
-	if((nextTag==TAG_CHILD || nextTag==TAG_LAYOUT || nextTag==TAG_CONSTRAINT) &&
-		currentTag==TAG_OBJECT)
-	{
-		XfdashboardThemeLayoutTagData		*tagData;
-		XfdashboardThemeLayoutParsedObject	*parentObject;
-
-		/* <layout> and <constraint> can only be set for parent objects derived of type ClutterActor */
-		parentObject=(XfdashboardThemeLayoutParsedObject*)g_queue_peek_tail(data->stackObjects);
-		if(!parentObject ||
-			!g_type_is_a(parentObject->classType, CLUTTER_TYPE_ACTOR))
-		{
-			_xfdashboard_theme_layout_parse_set_error(data,
-														inContext,
-														outError,
-														XFDASHBOARD_THEME_LAYOUT_ERROR_MALFORMED,
-														_("Tag <%s> can only be set at <%s> creating objects derived from class %s"),
-														inElementName,
-														_xfdashboard_theme_layout_get_tag_by_id(currentTag),
-														g_type_name(CLUTTER_TYPE_ACTOR));
-			return;
-		}
-
-		/* Create tag data */
-		tagData=_xfdashboard_theme_layout_tag_data_new(inContext, nextTag, &error);
-		if(!tagData)
-		{
-			g_propagate_error(outError, error);
-			return;
-		}
-
-		/* Get tag's attributes */
-		if(!g_markup_collect_attributes(inElementName,
-											inAttributeNames,
-											inAttributeValues,
-											&error,
-											G_MARKUP_COLLECT_INVALID,
-											NULL))
-		{
-			g_propagate_error(outError, error);
-			_xfdashboard_theme_layout_tag_data_unref(tagData);
-			return;
-		}
-
-		/* Push tag onto stack */
-		g_queue_push_tail(data->stackTags, tagData);
-		return;
-	}
-
 	/* Check if element name is <property> and follows expected parent tags:
-	 * <object>
+	 * <child>, <layout>, <constraint>
 	 */
 	if(nextTag==TAG_PROPERTY &&
-		currentTag==TAG_OBJECT)
+		(currentTag==TAG_CHILD || currentTag==TAG_LAYOUT || currentTag==TAG_CONSTRAINT))
 	{
 		XfdashboardThemeLayoutTagData		*tagData;
 		static GMarkupParser				propertyParser=
@@ -1408,7 +1516,7 @@ static void _xfdashboard_theme_layout_parse_general_start(GMarkupParseContext *i
 		XfdashboardThemeLayoutTagData		*tagData;
 
 		/* <interface> can only have one <focusables> element */
-		if(data->focusables)
+		if(data->currentInterface->hasFocusables)
 		{
 			_xfdashboard_theme_layout_parse_set_error(data,
 														inContext,
@@ -1441,11 +1549,8 @@ static void _xfdashboard_theme_layout_parse_general_start(GMarkupParseContext *i
 			return;
 		}
 
-		/* Create array to store focusables at. An empty array will at least
-		 * indicate that theme wanted to define focusables, in this case
-		 * no focusable actors at all.
-		 */
-		data->focusables=g_ptr_array_new_with_free_func((GDestroyNotify)_xfdashboard_theme_layout_tag_data_unref);
+		/* Set flag that tag <focusables> has seen at this interface */
+		data->currentInterface->hasFocusables=TRUE;
 
 		/* Push tag onto stack */
 		g_queue_push_tail(data->stackTags, tagData);
@@ -1506,13 +1611,12 @@ static void _xfdashboard_theme_layout_parse_general_end(GMarkupParseContext *inC
 															gpointer inUserData,
 															GError **outError)
 {
-	XfdashboardThemeLayoutParserData			*data=(XfdashboardThemeLayoutParserData*)inUserData;
-	XfdashboardThemeLayoutTagData				*tagData;
-	XfdashboardThemeLayoutTagData				*subTagData;
+	XfdashboardThemeLayoutParserData				*data=(XfdashboardThemeLayoutParserData*)inUserData;
+	XfdashboardThemeLayoutTagData					*tagData;
 
 	/* Get last tag from stack */
-	subTagData=(XfdashboardThemeLayoutTagData*)g_queue_pop_tail(data->stackTags);
-	if(!subTagData)
+	tagData=(XfdashboardThemeLayoutTagData*)g_queue_pop_tail(data->stackTags);
+	if(!tagData)
 	{
 		_xfdashboard_theme_layout_parse_set_error(data,
 													inContext,
@@ -1523,95 +1627,101 @@ static void _xfdashboard_theme_layout_parse_general_end(GMarkupParseContext *inC
 		return;
 	}
 
-	/* Get tag data for this element */
-	tagData=(XfdashboardThemeLayoutTagData*)g_queue_peek_tail(data->stackTags);
-
-	/* Handle end of element <object> */
-	if(subTagData->tagType==TAG_OBJECT)
+	/* Handle end of element <interface> */
+	if(tagData->tagType==TAG_INTERFACE)
 	{
-		XfdashboardThemeLayoutParsedObject		*objectData;
-		XfdashboardThemeLayoutParsedObject		*parentObjectData;
+		XfdashboardThemeLayoutParsedObject			*objectData;
+
+		objectData=(XfdashboardThemeLayoutParsedObject*)g_queue_pop_tail(data->stackObjects);
+
+		/* Append interface to list of known interface */
+		data->interfaces=g_slist_append(data->interfaces, _xfdashboard_theme_layout_object_data_ref(objectData));
+
+		/* Unreference last object's data */
+		_xfdashboard_theme_layout_object_data_unref(objectData);
+
+		/* Interface was handled so there is no current interface anymore */
+		_xfdashboard_theme_layout_object_data_unref(data->currentInterface);
+		data->currentInterface=NULL;
+	}
+
+	/* Handle end of element <child> */
+	if(tagData->tagType==TAG_CHILD)
+	{
+		XfdashboardThemeLayoutParsedObject			*objectData;
+		XfdashboardThemeLayoutParsedObject			*parentObjectData;
 
 		objectData=(XfdashboardThemeLayoutParsedObject*)g_queue_pop_tail(data->stackObjects);
 		parentObjectData=(XfdashboardThemeLayoutParsedObject*)g_queue_peek_tail(data->stackObjects);
 
-		/* Object is a child of <interface> */
-		if(tagData->tagType==TAG_INTERFACE)
+		g_assert(parentObjectData!=NULL);
+
+		parentObjectData->children=g_slist_append(parentObjectData->children, _xfdashboard_theme_layout_object_data_ref(objectData));
+
+		/* Unreference last object's data */
+		_xfdashboard_theme_layout_object_data_unref(objectData);
+	}
+
+	/* Handle end of element <layout> */
+	if(tagData->tagType==TAG_LAYOUT)
+	{
+		XfdashboardThemeLayoutParsedObject			*objectData;
+		XfdashboardThemeLayoutParsedObject			*parentObjectData;
+
+		objectData=(XfdashboardThemeLayoutParsedObject*)g_queue_pop_tail(data->stackObjects);
+		parentObjectData=(XfdashboardThemeLayoutParsedObject*)g_queue_peek_tail(data->stackObjects);
+
+		g_assert(parentObjectData!=NULL);
+
+		if(parentObjectData->layout)
 		{
-			g_assert(parentObjectData==NULL);
-
-			/* There can be only one <interface> per file */
-			if(data->interface)
-			{
-				_xfdashboard_theme_layout_parse_set_error(data,
-															inContext,
-															outError,
-															XFDASHBOARD_THEME_LAYOUT_ERROR_ERROR,
-															_("Document can have only one <%s>"),
-															_xfdashboard_theme_layout_get_tag_by_id(subTagData->tagType));
-				_xfdashboard_theme_layout_tag_data_unref(subTagData);
-				_xfdashboard_theme_layout_object_data_unref(objectData);
-				return;
-			}
-
-			/* Append interface to list of known interface */
-			data->interface=_xfdashboard_theme_layout_object_data_ref(objectData);
+			_xfdashboard_theme_layout_parse_set_error(data,
+														inContext,
+														outError,
+														XFDASHBOARD_THEME_LAYOUT_ERROR_ERROR,
+														_("Object can have only one <%s>"),
+														_xfdashboard_theme_layout_get_tag_by_id(tagData->tagType));
+			_xfdashboard_theme_layout_tag_data_unref(tagData);
+			_xfdashboard_theme_layout_object_data_unref(objectData);
+			return;
 		}
 
-		/* Object is a child of <child> */
-		if(tagData->tagType==TAG_CHILD)
-		{
-			g_assert(parentObjectData!=NULL);
+		parentObjectData->layout=_xfdashboard_theme_layout_object_data_ref(objectData);
 
-			parentObjectData->children=g_slist_append(parentObjectData->children, _xfdashboard_theme_layout_object_data_ref(objectData));
-		}
+		/* Unreference last object's data */
+		_xfdashboard_theme_layout_object_data_unref(objectData);
+	}
 
-		/* Object is a child of <constraint> */
-		if(tagData->tagType==TAG_CONSTRAINT)
-		{
-			g_assert(parentObjectData!=NULL);
+	/* Handle end of element <constraint> */
+	if(tagData->tagType==TAG_CONSTRAINT)
+	{
+		XfdashboardThemeLayoutParsedObject			*objectData;
+		XfdashboardThemeLayoutParsedObject			*parentObjectData;
 
-			parentObjectData->constraints=g_slist_append(parentObjectData->constraints, _xfdashboard_theme_layout_object_data_ref(objectData));
-		}
+		objectData=(XfdashboardThemeLayoutParsedObject*)g_queue_pop_tail(data->stackObjects);
+		parentObjectData=(XfdashboardThemeLayoutParsedObject*)g_queue_peek_tail(data->stackObjects);
 
-		/* Object is a child of <layout> */
-		if(tagData->tagType==TAG_LAYOUT)
-		{
-			g_assert(parentObjectData!=NULL);
+		g_assert(parentObjectData!=NULL);
 
-			if(parentObjectData->layout)
-			{
-				_xfdashboard_theme_layout_parse_set_error(data,
-															inContext,
-															outError,
-															XFDASHBOARD_THEME_LAYOUT_ERROR_ERROR,
-															_("Object can have only one <%s>"),
-															_xfdashboard_theme_layout_get_tag_by_id(subTagData->tagType));
-				_xfdashboard_theme_layout_tag_data_unref(subTagData);
-				_xfdashboard_theme_layout_object_data_unref(objectData);
-				return;
-			}
-
-			parentObjectData->layout=_xfdashboard_theme_layout_object_data_ref(objectData);
-		}
+		parentObjectData->constraints=g_slist_append(parentObjectData->constraints, _xfdashboard_theme_layout_object_data_ref(objectData));
 
 		/* Unreference last object's data */
 		_xfdashboard_theme_layout_object_data_unref(objectData);
 	}
 
 	/* Handle end of element <property> */
-	if(subTagData->tagType==TAG_PROPERTY)
+	if(tagData->tagType==TAG_PROPERTY)
 	{
-		XfdashboardThemeLayoutParsedObject		*objectData;
+		XfdashboardThemeLayoutParsedObject			*objectData;
 
 		/* Add property to object */
 		objectData=(XfdashboardThemeLayoutParsedObject*)g_queue_peek_tail(data->stackObjects);
-		objectData->properties=g_slist_append(objectData->properties, _xfdashboard_theme_layout_tag_data_ref(subTagData));
+		objectData->properties=g_slist_append(objectData->properties, _xfdashboard_theme_layout_tag_data_ref(tagData));
 		XFDASHBOARD_DEBUG(data->self, THEME,
 							"Adding property '%s' with %s '%s' to object %s",
-							subTagData->tag.property.name,
-							subTagData->tag.property.refID ? "referenced object of ID" : "value",
-							subTagData->tag.property.refID ? subTagData->tag.property.refID : subTagData->tag.property.value,
+							tagData->tag.property.name,
+							tagData->tag.property.refID ? "referenced object of ID" : "value",
+							tagData->tag.property.refID ? tagData->tag.property.refID : tagData->tag.property.value,
 							g_type_name(objectData->classType));
 
 		/* Restore previous parser context */
@@ -1619,17 +1729,16 @@ static void _xfdashboard_theme_layout_parse_general_end(GMarkupParseContext *inC
 	}
 
 	/* Handle end of element <focus> */
-	if(subTagData->tagType==TAG_FOCUS)
+	if(tagData->tagType==TAG_FOCUS)
 	{
-
-		g_assert(data->focusables);
+		g_assert(data->currentInterface);
 
 		/* Check if an actor was already marked as selected and print a warning
 		 * if now multiple actors are marked as selected.
 		 */
-		if(subTagData->tag.focus.selected)
+		if(tagData->tag.focus.selected)
 		{
-			XfdashboardThemeLayoutPrivate		*priv;
+			XfdashboardThemeLayoutPrivate			*priv;
 
 			priv=data->self->priv;
 
@@ -1640,49 +1749,41 @@ static void _xfdashboard_theme_layout_parse_general_end(GMarkupParseContext *inC
 							data->currentPath,
 							data->lastLine,
 							data->lastPosition,
-							data->interface->id,
-							subTagData->tag.focus.refID,
+							data->currentInterface->id ? data->currentInterface->id : _("Unknown"),
+							tagData->tag.focus.refID,
 							priv->focusSelected->tag.focus.refID);
 				XFDASHBOARD_DEBUG(data->self, THEME,
 									"In file '%s' at interface '%s' the ID '%s' should get focus but the ID '%s' was selected already",
 									data->currentPath,
-									data->interface->id,
-									subTagData->tag.focus.refID,
+									data->currentInterface->id ? data->currentInterface->id : _("Unknown"),
+									tagData->tag.focus.refID,
 									priv->focusSelected->tag.focus.refID);
 			}
 				/* Remember actor as pre-selected focus */
 				else
 				{
-					priv->focusSelected=_xfdashboard_theme_layout_tag_data_ref(subTagData);
+					priv->focusSelected=_xfdashboard_theme_layout_tag_data_ref(tagData);
 				}
 		}
 
 		/* Add focusable actor to parser data */
-		g_ptr_array_add(data->focusables, _xfdashboard_theme_layout_tag_data_ref(subTagData));
+		data->currentInterface->focusables=g_slist_append(data->currentInterface->focusables, _xfdashboard_theme_layout_tag_data_ref(tagData));
 		XFDASHBOARD_DEBUG(data->self, THEME,
 							"Adding focusable actor referenced by ID '%s' to parser data",
-							subTagData->tag.focus.refID);
+							tagData->tag.focus.refID);
 	}
 
-	/* Handle end of element <interface> */
-	if(subTagData->tagType==TAG_INTERFACE)
+	/* Handle end of element <focusables> */
+	if(tagData->tagType==TAG_FOCUSABLES)
 	{
-		/* Take reference on focusable actors list if available */
-		if(data->focusables)
-		{
-			g_assert(data->interface);
-			g_assert(!data->interface->focusables);
-
-			data->interface->focusables=g_ptr_array_ref(data->focusables);
-			XFDASHBOARD_DEBUG(data->self, THEME,
-								"Will resolve %d focusable actor IDs to interface '%s'",
-								data->interface->focusables->len,
-								data->interface->id);
-		}
+		XFDASHBOARD_DEBUG(data->self, THEME,
+							"Will resolve %d focusable actor IDs to interface '%s'",
+							g_slist_length(data->currentInterface->focusables),
+							data->currentInterface->id ? data->currentInterface->id : _("Unknown"));
 	}
 
 	/* Unreference last tag's data */
-	_xfdashboard_theme_layout_tag_data_unref(subTagData);
+	_xfdashboard_theme_layout_tag_data_unref(tagData);
 }
 
 /* Check for duplicate IDs and unresolvable refIDs */
@@ -1786,9 +1887,9 @@ static void _xfdashboard_theme_layout_check_ids(gpointer inData, gpointer inUser
 	g_slist_foreach(object->children, _xfdashboard_theme_layout_check_ids, inUserData);
 }
 
-static gboolean _xfdashboard_theme_layout_check_ids_and_refids(XfdashboardThemeLayout *self,
-																XfdashboardThemeLayoutParsedObject *inInterfaceObject,
-																GError **outError)
+static gboolean _xfdashboard_theme_layout_check_interface_ids_and_refids(XfdashboardThemeLayout *self,
+																			XfdashboardThemeLayoutParsedObject *inInterfaceObject,
+																			GError **outError)
 {
 	gboolean							success;
 	GHashTableIter						iter;
@@ -1870,6 +1971,31 @@ static gboolean _xfdashboard_theme_layout_check_ids_and_refids(XfdashboardThemeL
 	/* Release allocated resources */
 	g_hash_table_destroy(checkRefID.ids);
 	g_object_unref(checkRefID.self);
+
+	/* Return result of checks */
+	return(success);
+}
+
+static gboolean _xfdashboard_theme_layout_check_ids_and_refids(XfdashboardThemeLayout *self,
+																GSList *inInterfaces,
+																GError **outError)
+{
+	gboolean							success;
+	GSList								*iter;
+
+	g_return_val_if_fail(XFDASHBOARD_IS_THEME_LAYOUT(self), FALSE);
+	g_return_val_if_fail(inInterfaces, FALSE);
+	g_return_val_if_fail(outError==NULL || *outError==NULL, FALSE);
+
+	success=TRUE;
+
+	/* For each interface call the function to check for duplicate IDs and
+	 * referenced IDs.
+	 */
+	for(iter=inInterfaces; iter && success; iter=g_slist_next(iter))
+	{
+		success=_xfdashboard_theme_layout_check_interface_ids_and_refids(self, iter->data, outError);
+	}
 
 	/* Return result of checks */
 	return(success);
@@ -1960,7 +2086,8 @@ static gboolean _xfdashboard_theme_layout_parse_xml(XfdashboardThemeLayout *self
 		success=FALSE;
 	}
 
-	if(success && !data->interface)
+	if(success &&
+		(!data->interfaces || g_slist_length(data->interfaces)<=0))
 	{
 		g_set_error(outError,
 					XFDASHBOARD_THEME_LAYOUT_ERROR,
@@ -1970,17 +2097,7 @@ static gboolean _xfdashboard_theme_layout_parse_xml(XfdashboardThemeLayout *self
 		success=FALSE;
 	}
 
-	if(success && !data->interface->id)
-	{
-		g_set_error(outError,
-					XFDASHBOARD_THEME_LAYOUT_ERROR,
-					XFDASHBOARD_THEME_LAYOUT_ERROR_ERROR,
-					_("Interface at file %s has no ID"),
-					inPath);
-		success=FALSE;
-	}
-
-	if(success && !_xfdashboard_theme_layout_check_ids_and_refids(self, data->interface, &error))
+	if(success && !_xfdashboard_theme_layout_check_ids_and_refids(self, data->interfaces, &error))
 	{
 		g_propagate_error(outError, error);
 		success=FALSE;
@@ -1989,13 +2106,26 @@ static gboolean _xfdashboard_theme_layout_parse_xml(XfdashboardThemeLayout *self
 	/* Handle collected data if parsing was successful */
 	if(success)
 	{
-		priv->interfaces=g_slist_append(priv->interfaces, _xfdashboard_theme_layout_object_data_ref(data->interface));
+		GSList							*iter;
+
+		for(iter=data->interfaces; iter; iter=g_slist_next(iter))
+		{
+			priv->interfaces=g_slist_append(priv->interfaces, _xfdashboard_theme_layout_object_data_ref(iter->data));
+		}
 	}
 
 	/* Release allocated resources */
 	g_markup_parse_context_free(context);
 
-	if(data->interface) _xfdashboard_theme_layout_object_data_unref(data->interface);
+	if(data->interfaces)
+	{
+		GSList							*iter;
+
+		for(iter=data->interfaces; iter; iter=g_slist_next(iter))
+		{
+			_xfdashboard_theme_layout_object_data_unref(iter->data);
+		}
+	}
 
 	if(!g_queue_is_empty(data->stackObjects))
 	{
@@ -2013,8 +2143,6 @@ static gboolean _xfdashboard_theme_layout_parse_xml(XfdashboardThemeLayout *self
 	}
 	g_queue_free(data->stackTags);
 
-	if(data->focusables) g_ptr_array_unref(data->focusables);
-
 	g_free(data);
 
 	/* Return success result */
@@ -2024,7 +2152,7 @@ static gboolean _xfdashboard_theme_layout_parse_xml(XfdashboardThemeLayout *self
 		g_slist_foreach(priv->interfaces, (GFunc)_xfdashboard_theme_layout_print_parsed_objects, "Interface:");
 		XFDASHBOARD_DEBUG(self, THEME,
 							"PARSER ERROR: %s",
-							outError ? (*outError)->message : "unknown error");
+							outError && *outError && (*outError)->message ? (*outError)->message : "unknown error");
 	}
 #endif
 
