@@ -1,0 +1,52 @@
+<interfaces>
+	<interface class="XfdashboardStageInterface" id="secondary">
+		<child class="XfdashboardActor">
+			<property name="x-expand">true</property>
+			<property name="y-expand">true</property>
+			<property name="x">0</property>
+			<property name="y">8</property>
+
+			<constraint class="ClutterBindConstraint">
+				<property name="coordinate">width</property>
+				<property name="offset">0</property>
+				<property name="source" ref="secondary"></property>
+			</constraint>
+
+			<constraint class="ClutterBindConstraint">
+				<property name="coordinate">height</property>
+				<property name="offset">-16</property>
+				<property name="source" ref="secondary"></property>
+			</constraint>
+
+			<layout class="XfdashboardBoxLayout">
+				<property name="orientation">horizontal</property>
+				<property name="spacing">8.0</property>
+				<property name="homogeneous">false</property>
+			</layout>
+
+			<child class="XfdashboardCollapseBox">
+				<property name="y-expand">true</property>
+				<property name="collapsed-size">64.0</property>
+				<property name="collapse-orientation">right</property>
+
+				<child class="XfdashboardWorkspaceSelector">
+					<property name="can-focus">true</property>
+					<property name="y-expand">true</property>
+					<property name="outline-borders">top right bottom</property>
+					<property name="corners">right</property>
+					<property name="show-current-monitor-only">true</property>
+				</child>
+			</child>
+
+			<child class="XfdashboardWindowsView" id="windows-view">
+				<property name="view-id">windows</property>
+				<property name="x-expand">true</property>
+				<property name="y-expand">true</property>
+			</child>
+		</child>
+
+		<focusables>
+			<focus ref="windows-view" />
+		</focusables>
+	</interface>
+</interfaces>

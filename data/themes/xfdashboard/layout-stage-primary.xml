@@ -1,0 +1,111 @@
+<interfaces>
+	<interface class="XfdashboardStageInterface" id="primary">
+		<child class="XfdashboardActor">
+			<property name="x-expand">true</property>
+			<property name="y-expand">true</property>
+			<property name="x">0</property>
+			<property name="y">8</property>
+
+			<constraint class="ClutterBindConstraint">
+				<property name="coordinate">width</property>
+				<property name="offset">0</property>
+				<property name="source" ref="primary"></property>
+			</constraint>
+
+			<constraint class="ClutterBindConstraint">
+				<property name="coordinate">height</property>
+				<property name="offset">-16</property>
+				<property name="source" ref="primary"></property>
+			</constraint>
+
+			<layout class="XfdashboardBoxLayout">
+				<property name="orientation">horizontal</property>
+				<property name="spacing">8.0</property>
+				<property name="homogeneous">false</property>
+			</layout>
+
+			<child class="XfdashboardQuicklaunch" id="quicklaunch">
+				<property name="can-focus">true</property>
+				<property name="orientation">vertical</property>
+				<property name="y-expand">true</property>
+			</child>
+
+			<child class="XfdashboardActor" id="middle">
+				<property name="x-expand">true</property>
+				<property name="y-expand">true</property>
+
+				<layout class="ClutterBoxLayout">
+					<property name="orientation">vertical</property>
+					<property name="spacing">8.0</property>
+					<property name="homogeneous">false</property>
+				</layout>
+
+				<child class="XfdashboardActor" id="viewselector-searchbox-box">
+					<property name="x-expand">true</property>
+
+					<layout class="ClutterBoxLayout">
+						<property name="orientation">horizontal</property>
+						<property name="spacing">8.0</property>
+					</layout>
+
+					<child class="XfdashboardViewSelector" id="view-selector">
+						<property name="viewpad" ref="viewpad"></property>
+					</child>
+
+					<child class="XfdashboardTextBox" id="searchbox">
+						<property name="can-focus">true</property>
+						<property name="x-expand">true</property>
+						<property name="editable">true</property>
+					</child>
+				</child>
+
+				<child class="XfdashboardViewpad" id="viewpad">
+					<property name="can-focus">true</property>
+					<property name="x-expand">true</property>
+					<property name="y-expand">true</property>
+				</child>
+			</child>
+
+			<child class="XfdashboardCollapseBox" id="workspace-selector-collapse-box">
+				<property name="y-expand">true</property>
+
+				<child class="XfdashboardWorkspaceSelector" id="workspace-selector">
+					<property name="can-focus">true</property>
+					<property name="y-expand">true</property>
+					<property name="show-current-monitor-only">true</property>
+				</child>
+			</child>
+		</child>
+
+		<child class="XfdashboardTextBox" id="notification">
+			<property name="fixed-position-set">true</property>
+			<property name="z-position">0.1</property>
+			<property name="request-mode">height-for-width</property>
+
+			<constraint class="ClutterAlignConstraint">
+				<property name="align-axis">x-axis</property>
+				<property name="factor">0.5</property>
+				<property name="source" ref="primary"></property>
+			</constraint>
+
+			<constraint class="ClutterAlignConstraint">
+				<property name="align-axis">y-axis</property>
+				<property name="factor">1.0</property>
+				<property name="source" ref="primary"></property>
+			</constraint>
+		</child>
+
+		<child class="XfdashboardTextBox" id="tooltip">
+			<property name="fixed-position-set">true</property>
+			<property name="z-position">0.1</property>
+			<property name="request-mode">height-for-width</property>
+		</child>
+
+		<focusables>
+			<focus ref="searchbox" />
+			<focus ref="viewpad" />
+			<focus ref="workspace-selector" />
+			<focus ref="quicklaunch" />
+		</focusables>
+	</interface>
+</interfaces>
