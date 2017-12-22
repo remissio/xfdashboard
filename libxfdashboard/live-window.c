@@ -42,13 +42,18 @@
 #include <libxfdashboard/image-content.h>
 #include <libxfdashboard/stylable.h>
 #include <libxfdashboard/application.h>
+#include <libxfdashboard/layoutable.h>
 #include <libxfdashboard/compat.h>
+#include <libxfdashboard/debug.h>
 
 
 /* Define this class in GObject system */
-G_DEFINE_TYPE(XfdashboardLiveWindow,
-				xfdashboard_live_window,
-				XFDASHBOARD_TYPE_LIVE_WINDOW_SIMPLE)
+static void _xfdashboard_live_window_layoutable_iface_init(XfdashboardLayoutableInterface *iface);
+
+G_DEFINE_TYPE_WITH_CODE(XfdashboardLiveWindow,
+						xfdashboard_live_window,
+						XFDASHBOARD_TYPE_LIVE_WINDOW_SIMPLE,
+						G_IMPLEMENT_INTERFACE(XFDASHBOARD_TYPE_LAYOUTABLE, _xfdashboard_live_window_layoutable_iface_init))
 
 /* Private structure - access only by public API if needed */
 #define XFDASHBOARD_LIVE_WINDOW_GET_PRIVATE(obj) \
@@ -913,6 +918,16 @@ static void _xfdashboard_live_window_allocate(ClutterActor *self,
 		clutter_actor_box_init(&boxActorTitle, floor(left), floor(top), floor(right), floor(bottom));
 		clutter_actor_allocate(priv->actorTitle, &boxActorTitle, inFlags);
 	}
+}
+
+
+/* IMPLEMENTATION: Interface XfdashboardLayoutable */
+
+/* Interface initialization
+ * Set up default functions
+ */
+void _xfdashboard_live_window_layoutable_iface_init(XfdashboardLayoutableInterface *iface)
+{
 }
 
 /* IMPLEMENTATION: GObject */
