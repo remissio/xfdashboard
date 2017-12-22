@@ -923,11 +923,130 @@ static void _xfdashboard_live_window_allocate(ClutterActor *self,
 
 /* IMPLEMENTATION: Interface XfdashboardLayoutable */
 
+#if 0
+/* Called after actor was constructed via layout xml file */
+static void _xfdashboard_live_window_layoutable_fetch(XfdashboardLayoutable *inLayoutable,
+															const gchar *inStyle)
+{
+	XfdashboardLiveWindow			*self;
+	XfdashboardLiveWindowPrivate	*priv;
+
+	g_return_if_fail(XFDASHBOARD_IS_LAYOUTABLE(inLayoutable));
+	g_return_if_fail(XFDASHBOARD_IS_LIVE_WINDOW(inLayoutable));
+
+	self=XFDASHBOARD_LIVE_WINDOW(inLayoutable);
+	priv=self->priv;
+
+	/* Fetch sub-actors */
+	xfdashboard_layoutable_fetch(inLayoutable,
+									"#subwindows-layer",
+									XFDASHBOARD_LAYOUTABLE_FETCH_FLAGS_REQUIRED,
+									&priv->actorSubwindowsLayer,
+									G_TYPE_INVALID);
+	xfdashboard_layoutable_fetch(inLayoutable,
+									"#controls-layer",
+									XFDASHBOARD_LAYOUTABLE_FETCH_FLAGS_REQUIRED,
+									&priv->actorControlLayer,
+									G_TYPE_INVALID);
+	xfdashboard_layoutable_fetch(inLayoutable,
+									"#controls-layer #title",
+									XFDASHBOARD_LAYOUTABLE_FETCH_FLAGS_REQUIRED,
+									&priv->actorTitle,
+									XFDASHBOARD_TYPE_BUTTON,
+									G_TYPE_INVALID);
+	xfdashboard_layoutable_fetch(inLayoutable,
+									"#controls-layer #close",
+									XFDASHBOARD_LAYOUTABLE_FETCH_FLAGS_REQUIRED,
+									&priv->actorClose,
+									XFDASHBOARD_TYPE_BUTTON,
+									G_TYPE_INVALID);
+	xfdashboard_layoutable_fetch(inLayoutable,
+									"#controls-layer #window-number",
+									XFDASHBOARD_LAYOUTABLE_FETCH_FLAGS_REQUIRED,
+									&priv->actorWindowNumber,
+									XFDASHBOARD_TYPE_BUTTON,
+									G_TYPE_INVALID);
+}
+#endif
+
+/* Fallback function to create a default actor for requested style if no layout in theme is available */
+static void _xfdashboard_live_window_layoutable_fallback(XfdashboardLayoutable *inLayoutable,
+															const gchar *inStyle)
+{
+	XfdashboardLiveWindow			*self;
+	XfdashboardLiveWindowPrivate	*priv;
+
+	g_return_if_fail(XFDASHBOARD_IS_LAYOUTABLE(inLayoutable));
+	g_return_if_fail(XFDASHBOARD_IS_LIVE_WINDOW(inLayoutable));
+
+	self=XFDASHBOARD_LIVE_WINDOW(inLayoutable);
+	priv=self->priv;
+
+	/* Set up container for sub-windows and add it before the container for controls
+	 * to keep the controls on top.
+	 */
+	priv->actorSubwindowsLayer=xfdashboard_actor_new();
+	clutter_actor_add_child(CLUTTER_ACTOR(self), priv->actorSubwindowsLayer);
+
+	/* Set up container for controls and add child actors (order is important) */
+	priv->actorControlLayer=xfdashboard_actor_new();
+	clutter_actor_add_child(CLUTTER_ACTOR(self), priv->actorControlLayer);
+
+	priv->actorTitle=xfdashboard_button_new();
+	clutter_actor_add_child(priv->actorControlLayer, priv->actorTitle);
+
+	priv->actorClose=xfdashboard_button_new();
+	clutter_actor_add_child(priv->actorControlLayer, priv->actorClose);
+
+	priv->actorWindowNumber=xfdashboard_button_new();
+	clutter_actor_add_child(priv->actorControlLayer, priv->actorWindowNumber);
+}
+
+/* Called after actor was constructed either via layout xml file or via fallback function */
+static void _xfdashboard_live_window_layoutable_post_create(XfdashboardLayoutable *inLayoutable,
+															const gchar *inStyle)
+{
+	XfdashboardLiveWindow			*self;
+	XfdashboardLiveWindowPrivate	*priv;
+
+	g_return_if_fail(XFDASHBOARD_IS_LAYOUTABLE(inLayoutable));
+	g_return_if_fail(XFDASHBOARD_IS_LIVE_WINDOW(inLayoutable));
+
+	self=XFDASHBOARD_LIVE_WINDOW(inLayoutable);
+	priv=self->priv;
+
+	/* Set up actors */
+	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorSubwindowsLayer), "subwindows-layer");
+	clutter_actor_set_reactive(priv->actorSubwindowsLayer, FALSE);
+	clutter_actor_show(priv->actorSubwindowsLayer);
+
+	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorControlLayer), "controls-layer");
+	clutter_actor_set_reactive(priv->actorControlLayer, FALSE);
+	clutter_actor_show(priv->actorControlLayer);
+
+	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorTitle), "title");
+	clutter_actor_set_reactive(priv->actorTitle, FALSE);
+	clutter_actor_show(priv->actorTitle);
+
+	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorClose), "close-button");
+	clutter_actor_set_reactive(priv->actorClose, FALSE);
+	clutter_actor_show(priv->actorClose);
+
+	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorWindowNumber), "window-number");
+	clutter_actor_set_reactive(priv->actorWindowNumber, FALSE);
+	clutter_actor_hide(priv->actorWindowNumber);
+}
+
 /* Interface initialization
  * Set up default functions
  */
 void _xfdashboard_live_window_layoutable_iface_init(XfdashboardLayoutableInterface *iface)
 {
+#if 0
+	iface->fetch=_xfdashboard_live_window_layoutable_fetch;
+#endif
+	iface->fallback=_xfdashboard_live_window_layoutable_fallback;
+	iface->post_create=_xfdashboard_live_window_layoutable_post_create;
 }
 
 /* IMPLEMENTATION: GObject */

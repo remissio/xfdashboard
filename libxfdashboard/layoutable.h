@@ -47,9 +47,12 @@ typedef struct _XfdashboardLayoutableInterface		XfdashboardLayoutableInterface;
 
 /**
  * XfdashboardLayoutableInterface:
- * @create_default_interface: Called when no interface was defined by theme
- * @setup_from_interface: Called to set up actor object instance
- *   when an interface was defined by theme
+ * @fetch: Called to fetch sub-actors, layout, constraint, etc. object instances
+ *   when an interface was create as defined in a layout xml file of theme
+ * @fallback: Called when no interface was defined in any layout xml file of theme
+ * @post_create: Called after the layoutable actor was created regardless if it
+ *   was created as defined in a layout xml file of theme or via the @fallback
+ *   function.
  */
 struct _XfdashboardLayoutableInterface
 {
@@ -59,6 +62,9 @@ struct _XfdashboardLayoutableInterface
 
 	/*< public >*/
 	/* Virtual functions */
+	void (*fetch)(XfdashboardLayoutable *inLayoutable, const gchar *inStyle);
+	void (*fallback)(XfdashboardLayoutable *inLayoutable, const gchar *inStyle);
+	void (*post_create)(XfdashboardLayoutable *inLayoutable, const gchar *inStyle);
 };
 
 
