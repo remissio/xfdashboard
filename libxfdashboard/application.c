@@ -643,6 +643,7 @@ static gint _xfdashboard_application_handle_command_line_arguments(XfdashboardAp
 										{ "actor", XFDASHBOARD_DEBUG_ACTOR },
 										{ "style", XFDASHBOARD_DEBUG_STYLE },
 										{ "styling", XFDASHBOARD_DEBUG_STYLE },
+										{ "layout", XFDASHBOARD_DEBUG_LAYOUT },
 										{ "theme", XFDASHBOARD_DEBUG_THEME },
 										{ "apps", XFDASHBOARD_DEBUG_APPLICATIONS },
 										{ "applications", XFDASHBOARD_DEBUG_APPLICATIONS },

@@ -32,6 +32,7 @@
 #include <libxfdashboard/application.h>
 #include <libxfdashboard/stylable.h>
 #include <libxfdashboard/focusable.h>
+#include <libxfdashboard/layoutable.h>
 #include <libxfdashboard/utils.h>
 #include <libxfdashboard/compat.h>
 #include <libxfdashboard/debug.h>
@@ -870,6 +871,95 @@ static void _xfdashboard_actor_hide(ClutterActor *inActor)
 
 /* IMPLEMENTATION: GObject */
 
+/* Called to construct object instance */
+static GObject* _xfdashboard_actor_constructor(GType inType,
+												guint inNumberConstructProperties,
+												GObjectConstructParam *inConstructProperties)
+{
+	GObject									*object;
+	const gchar								*layoutableStyle;
+
+	layoutableStyle=NULL;
+
+	/* Check if this object type is layoutable and then check if a layout is defined
+	 * for this object type and requested style (defaults to "default"). If both
+	 * requirements are fulfilled get construction properties from layout.
+	 */
+	if(g_type_is_a(inType, XFDASHBOARD_TYPE_LAYOUTABLE))
+	{
+		// TODO: Get requested style
+		layoutableStyle=XFDASHBOARD_LAYOUTABLE_DEFAULT_STYLE;
+
+		// TODO: Check if a layout is defined for this object type and requested style
+		// TODO: Get construction properties from layout if requirements are fulfilled
+
+		XFDASHBOARD_DEBUG(NULL, LAYOUT,
+							"Constructing layoutable actor of type %s",
+							g_type_name(inType));
+	}
+
+	/* Chain up by calling parent's class constructor method */
+	object=G_OBJECT_CLASS(xfdashboard_actor_parent_class)->constructor(inType,
+																		inNumberConstructProperties,
+																		inConstructProperties);
+
+	/* If object type is layoutable call either the fetch method if a layout is
+	 * define for this object type and requested style in theme or the fallback
+	 * method.
+	 */
+	if(XFDASHBOARD_IS_LAYOUTABLE(object))
+	{
+		XfdashboardLayoutable				*layoutable;
+		XfdashboardLayoutableInterface		*iface;
+		gboolean							hasThemeLayout;
+
+		layoutable=XFDASHBOARD_LAYOUTABLE(object);
+		iface=XFDASHBOARD_LAYOUTABLE_GET_IFACE(object);
+
+		// TODO: Check if a layout is defined for this object type and requested style
+		g_assert(layoutableStyle!=NULL);
+		hasThemeLayout=FALSE;
+
+		// TODO: Call layoutable_iface->fetch() if layout is defined
+		if(hasThemeLayout)
+		{
+			// TODO: Call layoutable_iface->fetch() if available
+		}
+			/* ... otherwise call fallback function to initialize object type for
+			 * requested style. Print a warning if this function is not implemented
+			 * as it is needed in this case.
+			 */
+			else if(iface->fallback)
+			{
+				iface->fallback(layoutable, NULL);
+			}
+			/* Print a warning if neither a layout is defined in theme nor a
+			 * fallback function to initialize layoutable object type exist.
+			 */
+			else
+			{
+				g_warning(_("Cannot initialize actor of type %s as its layout is defined in theme '%s' and also a fallback creation function does not exist"),
+							G_OBJECT_TYPE_NAME(object),
+							/* TODO: Get theme name */ "the-any-theme");
+			}
+
+		/* Call post-create function for layoutable actor if available */
+		if(iface->post_create)
+		{
+			iface->post_create(layoutable, NULL);
+		}
+
+		// TODO: Create sub-actors, layouts and constraints if defined in layout
+		if(hasThemeLayout)
+		{
+			// TODO: Create sub-actors, layouts and constraints as defined in layout
+		}
+	}
+
+	/* Return new object instance for requested type */
+	return(object);
+}
+
 /* Dispose this object */
 static void _xfdashboard_actor_dispose(GObject *inObject)
 {
@@ -984,6 +1074,7 @@ void xfdashboard_actor_class_init(XfdashboardActorClass *klass)
 	xfdashboard_actor_parent_class=g_type_class_peek_parent(klass);
 
 	/* Override functions */
+	gobjectClass->constructor=_xfdashboard_actor_constructor;
 	gobjectClass->dispose=_xfdashboard_actor_dispose;
 	gobjectClass->set_property=_xfdashboard_actor_set_property;
 	gobjectClass->get_property=_xfdashboard_actor_get_property;

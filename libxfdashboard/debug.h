@@ -44,6 +44,7 @@ G_BEGIN_DECLS
  * @XFDASHBOARD_DEBUG_IMAGES: Images related debug message (image cache etc.)
  * @XFDASHBOARD_DEBUG_WINDOWS: Windows related debug message (window tracker, workspaces, windows, monitors etc.)
  * @XFDASHBOARD_DEBUG_PLUGINS: Plug-ins related debug message (plugin manager and plugin base class)
+ * @XFDASHBOARD_DEBUG_LAYOUT: Layout at actor debug messages (constructing layoutable actors implementing XfdashboardLayoutable interface via theme or fallback function)
  *
  * Debug categories
  */
@@ -57,6 +58,7 @@ typedef enum /*< skip,flags,prefix=XFDASHBOARD_DEBUG >*/
 	XFDASHBOARD_DEBUG_IMAGES		= 1 << 5,
 	XFDASHBOARD_DEBUG_WINDOWS		= 1 << 6,
 	XFDASHBOARD_DEBUG_PLUGINS		= 1 << 7,
+	XFDASHBOARD_DEBUG_LAYOUT		= 1 << 8,
 } XfdashboardDebugFlags;
 
 #ifdef XFDASHBOARD_ENABLE_DEBUG

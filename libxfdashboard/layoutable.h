@@ -36,6 +36,17 @@
 
 G_BEGIN_DECLS
 
+/* Public definitions */
+/**
+ * XFDASHBOARD_LAYOUTABLE_DEFAULT_STYLE:
+ *
+ * This macro defines a string containing the name of the default style if no
+ * style name was provided.
+ */
+
+#define XFDASHBOARD_LAYOUTABLE_DEFAULT_STYLE		"default"
+
+
 /* Object declaration */
 #define XFDASHBOARD_TYPE_LAYOUTABLE					(xfdashboard_layoutable_get_type())
 #define XFDASHBOARD_LAYOUTABLE(obj)					(G_TYPE_CHECK_INSTANCE_CAST((obj), XFDASHBOARD_TYPE_LAYOUTABLE, XfdashboardLayoutable))
