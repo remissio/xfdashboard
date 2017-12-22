@@ -1295,40 +1295,6 @@ static void xfdashboard_live_window_init(XfdashboardLiveWindow *self)
 	priv->xfconfChannel=xfdashboard_application_get_xfconf_channel(NULL);
 	priv->allowSubwindows=DEFAULT_ALLOW_SUBWINDOWS;
 
-	/* Set up container for sub-windows and add it before the container for controls
-	 * to keep the controls on top.
-	 */
-	priv->actorSubwindowsLayer=xfdashboard_actor_new();
-	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorSubwindowsLayer), "subwindows-layer");
-	clutter_actor_set_reactive(priv->actorSubwindowsLayer, FALSE);
-	clutter_actor_show(priv->actorSubwindowsLayer);
-	clutter_actor_add_child(CLUTTER_ACTOR(self), priv->actorSubwindowsLayer);
-
-	/* Set up container for controls and add child actors (order is important) */
-	priv->actorControlLayer=xfdashboard_actor_new();
-	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorControlLayer), "controls-layer");
-	clutter_actor_set_reactive(priv->actorControlLayer, FALSE);
-	clutter_actor_show(priv->actorControlLayer);
-	clutter_actor_add_child(CLUTTER_ACTOR(self), priv->actorControlLayer);
-
-	priv->actorTitle=xfdashboard_button_new();
-	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorTitle), "title");
-	clutter_actor_set_reactive(priv->actorTitle, FALSE);
-	clutter_actor_show(priv->actorTitle);
-	clutter_actor_add_child(priv->actorControlLayer, priv->actorTitle);
-
-	priv->actorClose=xfdashboard_button_new();
-	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorClose), "close-button");
-	clutter_actor_set_reactive(priv->actorClose, FALSE);
-	clutter_actor_show(priv->actorClose);
-	clutter_actor_add_child(priv->actorControlLayer, priv->actorClose);
-
-	priv->actorWindowNumber=xfdashboard_button_new();
-	xfdashboard_stylable_add_class(XFDASHBOARD_STYLABLE(priv->actorWindowNumber), "window-number");
-	clutter_actor_set_reactive(priv->actorWindowNumber, FALSE);
-	clutter_actor_hide(priv->actorWindowNumber);
-	clutter_actor_add_child(priv->actorControlLayer, priv->actorWindowNumber);
-
 	/* Bind to xfconf to react on changes */
 	priv->xfconfAllowSubwindowsBindingID=xfconf_g_property_bind(priv->xfconfChannel,
 																ALLOW_SUBWINDOWS_XFCONF_PROP,
