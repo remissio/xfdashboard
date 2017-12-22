@@ -2,7 +2,7 @@
 _Name=xfdashboard
 _Comment=Default theme for xfdashboard
 Style=xfdashboard.css
-Layout=layout-stage-primary.xml;layout-stage-secondary.xml
+Layout=layout-stage-primary.xml;layout-stage-secondary.xml;layout-live-window.xml
 Effects=effects.xml
 Author=Stephan Haller
 Version=@PACKAGE_VERSION@

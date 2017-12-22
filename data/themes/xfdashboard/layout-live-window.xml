@@ -1,0 +1,22 @@
+<interfaces>
+	<interface class="XfdashboardLiveWindow" style="default">
+		<!-- Layer containing sub-windows of this one -->
+		<child class="XfdashboardActor" id="subwindows-layer">
+		</child>
+
+		<!-- Layer containing control actor, e.g. title, close button -->
+		<child class="XfdashboardActor" id="controls-layer">
+			<!-- Button containing window title -->
+			<child class="XfdashboardButton" id="title">
+			</child>
+
+			<!-- Button to close window -->
+			<child class="XfdashboardButton" id="close">
+			</child>
+
+			<!-- Button showing window number -->
+			<child class="XfdashboardButton" id="window-number">
+			</child>
+		</child>
+	</interface>
+</interfaces>
