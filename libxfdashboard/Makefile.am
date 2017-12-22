@@ -56,6 +56,7 @@ libxfdashboard_la_headers = \
 	focus-manager.h \
 	image-content.h \
 	label.h \
+	layoutable.h \
 	live-window.h \
 	live-window-simple.h \
 	live-workspace.h \
@@ -132,6 +133,7 @@ libxfdashboard_la_SOURCES = \
 	focus-manager.c \
 	image-content.c \
 	label.c \
+	layoutable.c \
 	live-window.c \
 	live-window-simple.c \
 	live-workspace.c \
