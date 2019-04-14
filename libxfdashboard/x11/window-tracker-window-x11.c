@@ -916,11 +916,26 @@ static void _xfdashboard_window_tracker_window_x11_window_tracker_window_set_geo
 		inHeight+=(borderHeight-contentHeight);
 	}
 
+	gboolean isFullscreen, isMaximized, isMaximizedHorizontally, isMaximizedVertically;
+	isFullscreen = wnck_window_is_fullscreen(priv->window);
+	isMaximized = wnck_window_is_maximized(priv->window);
+	isMaximizedHorizontally = wnck_window_is_maximized_horizontally(priv->window);
+	isMaximizedVertically = wnck_window_is_maximized_vertically(priv->window);
+	if (isFullscreen)              wnck_window_set_fullscreen(priv->window, 0);
+	if (isMaximized)               wnck_window_unmaximize(priv->window);
+	if (isMaximizedHorizontally)   wnck_window_unmaximize_horizontally(priv->window);
+	if (isMaximizedVertically)     wnck_window_unmaximize_vertically(priv->window);
+
 	/* Set geometry */
 	wnck_window_set_geometry(priv->window,
 								WNCK_WINDOW_GRAVITY_STATIC,
 								flags,
 								inX, inY, inWidth, inHeight);
+
+	if (isFullscreen)              wnck_window_set_fullscreen(priv->window, 1);
+	if (isMaximized)               wnck_window_maximize(priv->window);
+	if (isMaximizedHorizontally)   wnck_window_maximize_horizontally(priv->window);
+	if (isMaximizedVertically)     wnck_window_maximize_vertically(priv->window);
 }
 
 /* Move window */
