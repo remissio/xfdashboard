@@ -1,0 +1,193 @@
+@import(xfdashboard.css)
+
+@constants
+{
+	accent-color: #1791CFEE;
+	black-color: #000000FF;
+	white-color: #FFFFFFFF;
+	red-color: #FF0000FF;
+	transparent-color: #00000000;
+	semitransparent-color: #111111AA;
+	ui-background-color: @semitransparent-color;
+	ui-border-color: #444444FF;
+	ui-button-hover-color: @accent-color;
+	
+	quicklaunch-color: @ui-background-color;
+	quicklaunch-border-color: @ui-border-color;
+	livewindow-close-button-color: @red-color;
+	livewindow-close-button-font-color: @white-color;
+	livewindow-title-background-color: @black-color;
+	livewindow-border-default-color: @transparent-color;
+	livewindow-border-hover-color: @ui-button-hover-color;
+	workspaceselector-color: @ui-background-color;
+	workspaceselector-border-color: @ui-border-color;
+	workspaceselector-width: 300.0;
+	workspaceselector-active-border-color: @accent-color;
+	workspaceselector-hover-border-color: @ui-button-hover-color;
+	workspaceselector-default-border-color: @semitransparent-color;
+	scrollbar-slider-color: @ui-background-color;
+	scrollbar-slider-hover-color: @ui-button-hover-color;
+}
+
+XfdashboardWindowContent
+{
+	include-window-frame: true;
+	unmapped-window-icon-x-fill: false;
+	unmapped-window-icon-y-fill: false;
+	unmapped-window-icon-x-align: 0.5;
+	unmapped-window-icon-y-align: 0.5;
+	unmapped-window-icon-x-scale: 2.0;
+	unmapped-window-icon-y-scale: 2.0;
+	unmapped-window-icon-anchor-point: center;
+}
+
+/* icons */
+
+XfdashboardQuicklaunch #applications-button
+{
+	icon-name: "view-list-symbolic";
+}
+
+XfdashboardQuicklaunch #applications-button:toggled
+{
+	icon-name: "view-paged-symbolic";
+}
+
+XfdashboardWindowsView
+{
+	view-icon: "view-paged-symbolic";
+}
+
+XfdashboardApplicationsView
+{
+	view-icon: "view-list-symbolic";
+}
+
+XfdashboardSearchView
+{
+	view-icon: "folder-saved-search-symbolic";
+}
+
+/* colors */
+
+#quicklaunch, #quicklaunch:drop-target
+{
+	background-type: fill outline rounded-corners;
+	background-fill-color: @quicklaunch-color;
+	corner-radius: 2px;
+	outline-color: @quicklaunch-border-color;
+}
+
+#quicklaunch XfdashboardButton:hover
+{
+	background-fill-color: @ui-button-hover-color;
+}
+
+XfdashboardQuicklaunch #applications-button
+{
+	background-fill-color: @ui-background-color;
+}
+
+XfdashboardQuicklaunch #trash-button:drop-target
+{
+	background-fill-color: @ui-button-hover-color;
+}
+
+.drag-actor-XfdashboardLiveWindow:drag-handle
+{
+	background-fill-color: @semitransparent-color;
+	outline-color: @semitransparent-color;
+}
+
+XfdashboardWorkspaceSelector
+{
+	background-fill-color: @workspaceselector-color;
+	outline-color: @workspaceselector-border-color;
+	max-size: @workspaceselector-width;
+	corner-radius: 2px;
+}
+
+XfdashboardLiveWorkspace
+{
+	outline-width: 3.0;
+	outline-color: @workspaceselector-default-border-color;
+	corner-radius: 2px;
+}
+
+XfdashboardLiveWorkspace:active
+{
+	outline-width: 3.0;
+	outline-color: @workspaceselector-active-border-color;
+}
+
+XfdashboardLiveWorkspace:hover
+{
+	outline-width: 3.0;
+	outline-color: @workspaceselector-hover-border-color;
+}
+
+XfdashboardScrollbar
+{
+	slider-color: @scrollbar-slider-color;
+}
+
+XfdashboardScrollbar:hover
+{
+	slider-color: @scrollbar-slider-hover-color;
+}
+
+XfdashboardScrollbar:pressed
+{
+	slider-color: @scrollbar-slider-hover-color;
+}
+
+XfdashboardSearchView XfdashboardSearchResultContainer XfdashboardButton.result-item:hover,
+XfdashboardApplicationsView XfdashboardButton:hover
+{
+	background-fill-color: @ui-button-hover-color;
+}
+
+XfdashboardSearchView XfdashboardSearchResultContainer XfdashboardButton:selected,
+XfdashboardApplicationsView XfdashboardButton:selected
+{
+	background-fill-color: @ui-button-hover-color;
+	outline-color: @ui-border-color;
+}
+
+#view-selector XfdashboardToggleButton:toggled
+{
+	background-fill-color: @ui-button-hover-color;
+}
+
+#searchbox.focus
+{
+	outline-color: @ui-border-color;
+	background-fill-color: @ui-background-color;
+	outline-width: 1px;
+}
+
+XfdashboardLiveWindow
+{
+	background-type: outline;
+	corner-radius: 2px;
+	outline-width: 3.0;
+	outline-color: @livewindow-border-default-color;
+}
+
+XfdashboardLiveWindow:selected,
+XfdashboardLiveWindow:hover
+{
+	outline-color: @livewindow-border-hover-color;
+}
+
+XfdashboardLiveWindow XfdashboardButton.title
+{
+	background-fill-color: @livewindow-title-background-color;
+}
+
+XfdashboardLiveWindow .close-button
+{
+	corner-radius: 15.0;
+	background-fill-color: @livewindow-close-button-color;
+	button-color: @livewindow-close-button-font-color;
+}

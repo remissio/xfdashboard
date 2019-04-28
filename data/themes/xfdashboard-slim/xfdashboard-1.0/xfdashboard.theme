@@ -1,0 +1,8 @@
+[Xfdashboard Theme]
+Name=xfdashboard-custom
+Comment=Custom theme for xfdashboard
+Style=xfdashboard-custom.css
+Layout=xfdashboard.xml;xfdashboard-secondary.xml
+Effects=effects.xml
+Author=archx
+Version=0.7.5
